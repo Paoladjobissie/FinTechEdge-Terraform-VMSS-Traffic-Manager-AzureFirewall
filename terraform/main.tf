@@ -1,109 +1,149 @@
-resource "random_pet" "rg_name" {
-  prefix = var.resource_group_name_prefix
+# Create Resource Groups
+resource "azurerm_resource_group" "east_us_rg" {
+  name     = "east-us-rg"
+  location = "East US"
 }
 
-resource "azurerm_resource_group" "rg" {
-  location = var.resource_group_location
-  name     = random_pet.rg_name.id
+resource "azurerm_resource_group" "west_us_rg" {
+  name     = "west-us-rg"
+  location = "West US"
 }
 
-# Create virtual network
-resource "azurerm_virtual_network" "my_network" {
-  name                = "myVnet"
+# Create Virtual Networks
+resource "azurerm_virtual_network" "east_us_vnet" {
+  name                = "east-us-vnet"
+  location            = azurerm_resource_group.east_us_rg.location
+  resource_group_name = azurerm_resource_group.east_us_rg.name
   address_space       = ["10.0.0.0/16"]
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
 }
 
-# Create subnet
-resource "azurerm_subnet" "my_subnet" {
-  name                 = "mySubnet"
-  resource_group_name  = azurerm_resource_group.rg.name
-  virtual_network_name = azurerm_virtual_network.my_network.name
-  address_prefixes     = ["10.0.1.0/24"]
+resource "azurerm_virtual_network" "west_us_vnet" {
+  name                = "west-us-vnet"
+  location            = azurerm_resource_group.west_us_rg.location
+  resource_group_name = azurerm_resource_group.west_us_rg.name
+  address_space       = ["10.100.0.0/16"]
 }
 
-resource "azurerm_public_ip" "my_public_ip" {
-  name                = "myPublicIP"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  allocation_method   = "Dynamic"
+# Define Subnets as Separate Resources
+resource "azurerm_subnet" "east_app_subnet" {
+  name                 = "east-app-subnet"
+  resource_group_name  = azurerm_resource_group.east_us_rg.name
+  virtual_network_name = azurerm_virtual_network.east_us_vnet.name
+  address_prefixes     = ["10.0.3.0/24"]
 }
 
-resource "azurerm_network_security_group" "my_nsg" {
-  name                = "myNSG"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-
-  dynamic "security_rule" {
-    for_each = var.nsg_rules
-    content {
-      name                       = security_rule.value["name"]
-      priority                   = security_rule.value["priority"]
-      direction                  = security_rule.value["direction"]
-      access                     = security_rule.value["access"]
-      protocol                   = security_rule.value["protocol"]
-      source_port_range          = security_rule.value["source_port_range"]
-      destination_port_range     = security_rule.value["destination_port_range"]
-      source_address_prefix      = security_rule.value["source_address_prefix"]
-      destination_address_prefix = security_rule.value["destination_address_prefix"]
-    }
-  }
+resource "azurerm_subnet" "east_data_subnet" {
+  name                 = "east-data-subnet"
+  resource_group_name  = azurerm_resource_group.east_us_rg.name
+  virtual_network_name = azurerm_virtual_network.east_us_vnet.name
+  address_prefixes     = ["10.0.4.0/24"]
 }
 
-# Create network interface
-resource "azurerm_network_interface" "my_nic" {
-  name                = "myNIC"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-
-  ip_configuration {
-    name                          = "my_nic_configuration"
-    subnet_id                     = azurerm_subnet.my_subnet.id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.my_public_ip.id
-  }
+# Subnets for west-us-vnet
+resource "azurerm_subnet" "west_app_subnet" {
+  name                 = "west-app-subnet"
+  resource_group_name  = azurerm_resource_group.west_us_rg.name
+  virtual_network_name = azurerm_virtual_network.west_us_vnet.name
+  address_prefixes     = ["10.100.3.0/24"]
 }
 
-# Connect the security group to the network interface
-resource "azurerm_network_interface_security_group_association" "rhel" {
-  network_interface_id      = azurerm_network_interface.my_nic.id
-  network_security_group_id = azurerm_network_security_group.my_nsg.id
+resource "azurerm_subnet" "west_data_subnet" {
+  name                 = "west-data-subnet"
+  resource_group_name  = azurerm_resource_group.west_us_rg.name
+  virtual_network_name = azurerm_virtual_network.west_us_vnet.name
+  address_prefixes     = ["10.100.4.0/24"]
 }
 
-# Create (and display) an SSH key
+# Generate SSH Key
 resource "tls_private_key" "ssh" {
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
-# Create virtual machine
-resource "azurerm_linux_virtual_machine" "my_vm" {
-  name                  = "rhel"
-  location              = azurerm_resource_group.rg.location
-  resource_group_name   = azurerm_resource_group.rg.name
-  network_interface_ids = [azurerm_network_interface.my_nic.id]
-  size                  = "Standard_B1s"
+# Create Network Security Groups
+resource "azurerm_network_security_group" "east_us_nsg" {
+  name                = "east_us_nsg"
+  location            = azurerm_resource_group.east_us_rg.location
+  resource_group_name = azurerm_resource_group.east_us_rg.name
 
-  os_disk {
-    name                 = "myVMOsDisk"
-    caching              = "ReadWrite"
-    storage_account_type = "Premium_LRS"
+  security_rule {
+    name                       = "allow_outbound_traffic"
+    priority                   = 100
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
   }
 
-  source_image_reference {
-    publisher = "RedHat"
-    offer     = "RHEL"
-    sku       = "8-LVM"
-    version   = "latest"
-  }
-
-  computer_name                   = "VMRHEL001"
-  admin_username                  = "azureuser"
-  disable_password_authentication = true
-
-  admin_ssh_key {
-    username   = "azureuser"
-    public_key = tls_private_key.ssh.public_key_openssh
+  security_rule {
+    name                       = "allow_data_subnet_to_app_subnet"
+    priority                   = 200
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "10.0.2.0/24"
+    destination_address_prefix = "10.0.1.0/24"
   }
 }
+
+resource "azurerm_network_security_group" "west_us_nsg" {
+  name                = "west_us_nsg"
+  location            = azurerm_resource_group.west_us_rg.location
+  resource_group_name = azurerm_resource_group.west_us_rg.name
+
+  security_rule {
+    name                       = "allow_outbound_traffic"
+    priority                   = 100
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "allow_data_subnet_to_app_subnet"
+    priority                   = 200
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "10.100.2.0/24"
+    destination_address_prefix = "10.100.1.0/24"
+  }
+}
+
+# Associate Network Security Groups with Subnets
+resource "azurerm_subnet_network_security_group_association" "east_app_nsg_assoc" {
+  subnet_id                 = azurerm_subnet.east_app_subnet.id
+  network_security_group_id = azurerm_network_security_group.east_us_nsg.id
+}
+
+resource "azurerm_subnet_network_security_group_association" "west_app_nsg_assoc" {
+  subnet_id                 = azurerm_subnet.west_app_subnet.id
+  network_security_group_id = azurerm_network_security_group.west_us_nsg.id
+}
+
+# Output Generated SSH Key
+output "ssh_private_key" {
+  value     = tls_private_key.ssh.private_key_pem
+  sensitive = true
+}
+
+output "ssh_public_key" {
+  value = tls_private_key.ssh.public_key_openssh
+}
+
+
+
+
+
+
