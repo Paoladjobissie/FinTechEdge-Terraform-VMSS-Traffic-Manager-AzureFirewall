@@ -410,13 +410,6 @@ resource "azurerm_monitor_metric_alert" "east_network_latency" {
   }
 }
 
-    resource "azurerm_application_insights" "east_test_appinsights" {
-  name                = "east-test-appinsights"
-  location            = azurerm_resource_group.east_us_rg.location
-  resource_group_name = azurerm_resource_group.east_us_rg.name
-  application_type    = "web"
-}
-
 
 # LOG ANALYTIC WEST
 resource "azurerm_log_analytics_workspace" "west_log" {
@@ -523,7 +516,7 @@ resource "azurerm_monitor_metric_alert" "west_network_latency" {
   }
 }
 # APPLICATION INSIGHT EAST
-  resource "azurerm_application_insights" "test_appinsights" {
+  resource "azurerm_application_insights" "east_test_appinsights" {
   name                = "east-test-appinsights"
   location            = azurerm_resource_group.east_us_rg.location
   resource_group_name = azurerm_resource_group.east_us_rg.name
@@ -534,7 +527,7 @@ resource "azurerm_monitor_metric_alert" "west_network_latency" {
   }
 }
 # APPLICATION INSIGHT WEST
- resource "azurerm_application_insights" "test_appinsights" {
+ resource "azurerm_application_insights" "west_test_appinsights" {
   name                = "west-test-appinsights"
   location            = azurerm_resource_group.west_us_rg.location
   resource_group_name = azurerm_resource_group.west_us_rg.name

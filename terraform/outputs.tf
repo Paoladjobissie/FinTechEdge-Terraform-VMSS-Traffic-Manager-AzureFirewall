@@ -16,10 +16,10 @@ output "west_traffic_manager_fqdn" {
   value = data.azurerm_subscription.current.id
 }*/
 output "instrumentation_key" {
-  value = azurerm_application_insights.test_appinsights.instrumentation_key
+  value = azurerm_application_insights.east_test_appinsights.instrumentation_key
      sensitive = true
 }
 
 output "app_id" {
-  value = azurerm_application_insights.test_appinsights.app_id
+  value = azurerm_application_insights.east_test_appinsights.app_id
 }
