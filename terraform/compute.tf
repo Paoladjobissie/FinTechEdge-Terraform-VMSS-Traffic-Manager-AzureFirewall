@@ -543,13 +543,16 @@ resource "azurerm_automation_runbook" "east_health_check" {
   location                = azurerm_resource_group.east_us_rg.location
   resource_group_name     = azurerm_resource_group.east_us_rg.name
   automation_account_name = azurerm_automation_account.east_automation.name
+
   log_verbose             = true
   log_progress            = true
   description             = "Runbook to perform daily health checks."
+
   publish_content_link {
-    uri = "https://raw.githubusercontent/github.com/Paoladjobissie/FinTechEdge-Terraform-VMSS-Traffic-Manager-AzureFirewall/scripts/main/health_check.ps1"
+    uri = "https://raw.githubusercontent.com/Paoladjobissie/FinTechEdge-Terraform-VMSS-Traffic-Manager-AzureFirewall/main/terraform/health_check.ps1"
   }
-  runbook_type            = "PowerShellWorkflow"
+
+  runbook_type = "PowerShell"
 }
 
 resource "azurerm_automation_runbook" "east_vm_start_stop" {
@@ -561,7 +564,7 @@ resource "azurerm_automation_runbook" "east_vm_start_stop" {
   log_progress            = "true"
   description             = "Runbook to start/stop VMs for cost savings."
   publish_content_link {
-    uri = "https://github.com/Paoladjobissie/FinTechEdge-Terraform-VMSS-Traffic-Manager-AzureFirewall/tree/main/terraform/health_check.ps1"
+    uri = "https://github.com/Paoladjobissie/FinTechEdge-Terraform-VMSS-Traffic-Manager-AzureFirewall/blob/main/terraform/health_check.ps1"
   }
   runbook_type            = "PowerShellWorkflow"
 }
@@ -573,7 +576,7 @@ resource "azurerm_automation_schedule" "east_health_schedule" {
   frequency               = "Week"
   interval                = 1
   timezone                = "UTC"
-  start_time              = "2025-01-14T00:00:00Z"
+  start_time              = "2025-01-20T00:05:00Z"
   description             = "Runbook for health checks in the East region."
   week_days               = ["Friday"]
 }
@@ -585,7 +588,7 @@ resource "azurerm_automation_schedule" "east_start_stop_schedule" {
   frequency               = "Week"
   interval                = 1
   timezone                = "UTC"
-  start_time              = "2025-01-14T02:00:00Z"
+  start_time              = "2025-01-20T02:05:00Z"
   description             = "Daily schedule for VM start/stop runbook."
    week_days               = ["Friday"]
 }
