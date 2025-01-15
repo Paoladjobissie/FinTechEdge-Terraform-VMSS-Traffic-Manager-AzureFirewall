@@ -522,13 +522,30 @@ resource "azurerm_monitor_metric_alert" "west_network_latency" {
     threshold        = 80
   }
 }
-
-    resource "azurerm_application_insights" "test_appinsights" {
-  name                = "test-appinsights"
+# APPLICATION INSIGHT EAST
+  resource "azurerm_application_insights" "test_appinsights" {
+  name                = "east-test-appinsights"
   location            = azurerm_resource_group.east_us_rg.location
   resource_group_name = azurerm_resource_group.east_us_rg.name
   application_type    = "web"
+  retention_in_days = 30  # Optional: Configure retention period
+  tags = {
+    environment = "production"
+  }
 }
+# APPLICATION INSIGHT WEST
+ resource "azurerm_application_insights" "test_appinsights" {
+  name                = "west-test-appinsights"
+  location            = azurerm_resource_group.west_us_rg.location
+  resource_group_name = azurerm_resource_group.west_us_rg.name
+  application_type    = "web"
+  retention_in_days = 30  # Optional: Configure retention period
+  tags = {
+    environment = "production"
+  }
+}
+
+
 # AUTOMATION EAST
 resource "azurerm_automation_account" "east_automation" {
   name                = "east-automation"
@@ -607,3 +624,69 @@ resource "azurerm_automation_job_schedule" "east_vm_start_stop_job" {
   resource_group_name     = azurerm_resource_group.east_us_rg.name
   runbook_name            = azurerm_automation_runbook.east_vm_start_stop.name
 }*/
+
+# WEST AUTOMATION
+
+# AUTOMATION EAST
+resource "azurerm_automation_account" "west_automation" {
+  name                = "west-automation"
+  location            = azurerm_resource_group.west_us_rg.location
+  resource_group_name = azurerm_resource_group.west_us_rg.name
+  sku_name            = "Basic"
+
+}
+
+resource "azurerm_automation_runbook" "west_health_check" {
+  name                    = "west-health-check"
+  location                = azurerm_resource_group.west_us_rg.location
+  resource_group_name     = azurerm_resource_group.west_us_rg.name
+  automation_account_name = azurerm_automation_account.west_automation.name
+
+  log_verbose             = true
+  log_progress            = true
+  description             = "Runbook to perform daily health checks."
+
+  publish_content_link {
+    uri = "https://raw.githubusercontent.com/Paoladjobissie/FinTechEdge-Terraform-VMSS-Traffic-Manager-AzureFirewall/main/terraform/health_check.ps1"
+  }
+
+  runbook_type = "PowerShell"
+}
+
+resource "azurerm_automation_runbook" "west_vm_start_stop" {
+  name                    = "west-vm-start-stop"
+  location                = azurerm_resource_group.west_us_rg.location
+  resource_group_name     = azurerm_resource_group.west_us_rg.name
+  automation_account_name = azurerm_automation_account.west_automation.name
+  log_verbose             = "true"
+  log_progress            = "true"
+  description             = "Runbook to start/stop VMs for cost savings."
+  publish_content_link {
+    uri = "https://raw.githubusercontent.com/Paoladjobissie/FinTechEdge-Terraform-VMSS-Traffic-Manager-AzureFirewall/main/terraform/health_check.ps1"
+  }
+  runbook_type            = "PowerShellWorkflow"
+}
+
+resource "azurerm_automation_schedule" "west_health_schedule" {
+  name                    = "west-health-schedule"
+  resource_group_name     = azurerm_resource_group.west_us_rg.name
+  automation_account_name = azurerm_automation_account.west_automation.name
+  frequency               = "Week"
+  interval                = 1
+  timezone                = "UTC"
+  start_time              = "2025-01-20T00:05:00Z"
+  description             = "Runbook for health checks in the East region."
+  week_days               = ["Friday"]
+}
+
+resource "azurerm_automation_schedule" "west_start_stop_schedule" {
+  name                    = "west-start-stop-schedule"
+  resource_group_name     = azurerm_resource_group.west_us_rg.name
+  automation_account_name = azurerm_automation_account.west_automation.name
+  frequency               = "Week"
+  interval                = 1
+  timezone                = "UTC"
+  start_time              = "2025-01-20T02:05:00Z"
+  description             = "Daily schedule for VM start/stop runbook."
+   week_days               = ["Friday"]
+}
