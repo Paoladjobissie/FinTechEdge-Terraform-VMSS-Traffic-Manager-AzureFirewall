@@ -94,19 +94,6 @@ resource "azurerm_network_security_group" "west_us_nsg" {
   name                = "west_us_nsg"
   location            = azurerm_resource_group.west_us_rg.location
   resource_group_name = azurerm_resource_group.west_us_rg.name
-
-  security_rule {
-    name                       = "allow_outbound_traffic"
-    priority                   = 100
-    direction                  = "Outbound"
-    access                     = "Allow"
-    protocol                   = "*"
-    source_port_range          = "*"
-    destination_port_range     = "*"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-
   security_rule {
     name                       = "allow_data_subnet_to_app_subnet"
     priority                   = 200
@@ -118,19 +105,43 @@ resource "azurerm_network_security_group" "west_us_nsg" {
     source_address_prefix      = "10.100.4.0/24"
     destination_address_prefix = "10.100.3.0/24"
   }
+
+  security_rule {
+    name                       = "allow_outbound_traffic"
+    priority                   = 100
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+   }
 }
 
-# Associate Network Security Groups with Subnets
+
+# Associate Network Security Groups with app Subnets EAST
 resource "azurerm_subnet_network_security_group_association" "east_app_nsg_assoc" {
   subnet_id                 = azurerm_subnet.east_app_subnet.id
   network_security_group_id = azurerm_network_security_group.east_us_nsg.id
 }
-
+# WEST
 resource "azurerm_subnet_network_security_group_association" "west_app_nsg_assoc" {
   subnet_id                 = azurerm_subnet.west_app_subnet.id
   network_security_group_id = azurerm_network_security_group.west_us_nsg.id
 }
 
+# Subnet Association: Attach the NSG to the Database subnet EAST
+resource "azurerm_subnet_network_security_group_association" "east_data_nsg_association" {
+  subnet_id                 = azurerm_subnet.east_data_subnet.id
+  network_security_group_id = azurerm_network_security_group.east_us_nsg.id
+}
+
+# Subnet Association: Attach the NSG to the Database subnet WEST
+resource "azurerm_subnet_network_security_group_association" "west_data_nsg_association" {
+  subnet_id                 = azurerm_subnet.west_data_subnet.id
+  network_security_group_id = azurerm_network_security_group.west_us_nsg.id
+}
 ## Output Generated SSH Key
 #output "ssh_private_key" {
 #  value     = tls_private_key.ssh.private_key_pem
@@ -141,22 +152,22 @@ resource "azurerm_subnet_network_security_group_association" "west_app_nsg_assoc
 #  value = tls_private_key.ssh.public_key_openssh
 #}
 
-# Traffic Manager Profile
-/*resource "azurerm_public_ip" "public_ip" {
-  name                = "public-ip"
+# Traffic Manager Profile east
+resource "azurerm_public_ip" "east_public_ip" {
+  name                = "east-public-ip"
   location            = azurerm_resource_group.east_us_rg.location
   resource_group_name = azurerm_resource_group.east_us_rg.name
   allocation_method   = "Static"
-  domain_name_label   = "public-ip"
-}*/
+  domain_name_label   = "east-unique-public-ip"
+}
 
-resource "azurerm_traffic_manager_profile" "traffic_manager" {
-  name                   = "traffic-manager-profile"
+resource "azurerm_traffic_manager_profile" "east_traffic_manager" {
+  name                   = "east-traffic-manager"
   resource_group_name    = azurerm_resource_group.east_us_rg.name
-  traffic_routing_method = "weighted"
+  traffic_routing_method = "Priority"
 
   dns_config {
-    relative_name = "traffic-manager-dns"
+    relative_name = "east-traffic-manager-dns"
     ttl           = 30
   }
 
@@ -173,24 +184,53 @@ tags = {
   }
 }
 
-# East Region Endpoint
-resource "azurerm_traffic_manager_endpoint" "east_endpoint" {
+#Traffic manager profile west
+resource "azurerm_public_ip" "west_public_ip" {
+  name                = "west-public-ip"
+  location            = azurerm_resource_group.west_us_rg.location
+  resource_group_name = azurerm_resource_group.west_us_rg.name
+  allocation_method   = "Static"
+  domain_name_label   = "west-unique-public-ip"
+}
+resource "azurerm_traffic_manager_profile" "west_traffic_manager" {
+  name                   = "west-traffic-manager"
+  resource_group_name    = azurerm_resource_group.west_us_rg.name
+  traffic_routing_method = "Priority"
+
+  dns_config {
+    relative_name = "west-traffic-manager-dns"
+    ttl           = 30
+  }
+
+  monitor_config {
+    protocol                     = "HTTP"
+    port                         = 80
+    path                         = "/"
+    interval_in_seconds          = 30
+    timeout_in_seconds           = 10
+    tolerated_number_of_failures = 3
+  }
+tags = {
+    environment = "Production"
+  }
+}
+
+# Traffic Manager Azure Endpoint for East Region
+resource "azurerm_traffic_manager_azure_endpoint" "east_endpoint" {
   name                = "east-endpoint"
-  profile_name        = azurerm_traffic_manager_profile.traffic_manager.name
-  resource_group_name = azurerm_resource_group.east_us_rg.name
-  type                = "azureEndpoints"
-  target_resource_id  = azurerm_lb.east_endpoint.id
-  endpoint_location   = "East US"
+  weight              = 100
+  profile_id               = azurerm_traffic_manager_profile.east_traffic_manager.id
+  target_resource_id  = azurerm_public_ip.east_public_ip.id
   priority            = 1
 }
 
-# West Region Endpoint
-resource "azurerm_traffic_manager_endpoint" "west_endpoint" {
-  name                = "west-region-endpoint"
-  profile_name        = azurerm_traffic_manager_profile.traffic_manager.name
-  resource_group_name = azurerm_resource_group.west_us_rg.name
-  type                = "azureEndpoints"
-  target_resource_id  = azurerm_lb.west_endpoint.id
-  endpoint_location   = "West US"
-  priority            = 2
-}
+
+# West endpoint
+resource "azurerm_traffic_manager_azure_endpoint" "west_endpoint" {
+  name                 = "west-endpoint"
+  profile_id           = azurerm_traffic_manager_profile.west_traffic_manager.id
+  weight               = 100
+  target_resource_id   = azurerm_public_ip.west_public_ip.id
+  priority = 2
+  }
+

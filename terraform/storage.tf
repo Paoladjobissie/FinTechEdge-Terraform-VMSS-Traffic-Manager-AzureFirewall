@@ -1,104 +1,143 @@
 # Create Storage Account in East Region
 resource "azurerm_storage_account" "east_storage_account" {
-  name                     = "eastappdata"          # Storage account must be globally unique
+  name                     = "paoeaststorageaccount"          # Storage account must be globally unique
   resource_group_name      = azurerm_resource_group.east_us_rg.name
   location                 = azurerm_resource_group.east_us_rg.location
   account_tier              = "Standard"
   account_replication_type = "GRS"  # Geo-redundant storage for high availability
   account_kind             = "StorageV2"
-  blob_properties {
-    # Enable Blob Storage features (e.g., versioning, soft delete)
-    versioning_enabled = true
-    delete_retention_policy {
-      days = 7 # Retain deleted blobs for 7 days
+  
+  }
+
+
+# EAST
+# Create a Recovery Services Vault
+resource "azurerm_recovery_services_vault" "east_recovery_vault" {
+  name                = "east-recovery-vault"
+  location             = azurerm_resource_group.east_us_rg.location
+  resource_group_name  = azurerm_resource_group.east_us_rg.name
+  sku                  = "Standard"
+  
+}
+
+
+# Create a Backup Policy for VMs
+resource "azurerm_backup_policy_vm" "east_vm_policy" {
+  name                = "east-vm-backup-policy"
+  resource_group_name  = azurerm_resource_group.east_us_rg.name
+  recovery_vault_name = azurerm_recovery_services_vault.east_recovery_vault.name
+
+  timezone = "UTC"
+
+  backup {
+    frequency = "Daily"
+    time      = "23:00"
+  }
+
+  retention_daily {
+    count = 10
+  }
+
+  retention_weekly {
+    count    = 42
+    weekdays = ["Sunday", "Wednesday", "Friday", "Saturday"]
+  }
+
+  retention_monthly {
+    count    = 7
+    weekdays = ["Sunday", "Wednesday"]
+    weeks    = ["First", "Last"]
+  }
+
+  retention_yearly {
+    count    = 77
+    weekdays = ["Sunday"]
+    weeks    = ["Last"]
+    months   = ["January"]
+  }
+}
+
+
+
+# Create a Backup Vault
+resource "azurerm_data_protection_backup_vault" "east_blob_backup" {
+  name                = "eastbackupvault"
+  resource_group_name = azurerm_resource_group.east_us_rg.name
+  location            = azurerm_resource_group.east_us_rg.location
+  datastore_type     = "VaultStore" 
+ redundancy          = "GeoRedundant"
+
+
+  lifecycle {
+    prevent_destroy = false
+  }
+
 
   }
- }
+
+
+
+# Create a Backup Policy for Blob Storage
+resource "azurerm_data_protection_backup_policy_blob_storage" "east_blob_storage_policy" {
+  name                = "eastblobbackuppolicy"
+  vault_id           = azurerm_data_protection_backup_vault.east_blob_backup.id 
+  operational_default_retention_duration = "P7D"
+  time_zone          = "UTC"
+
+  depends_on = [
+        azurerm_data_protection_backup_vault.east_blob_backup
+  ]
+
+
+  lifecycle {
+    prevent_destroy = false
+  }
+
 }
 
+# Configure Backup for the Storage Account
 
-/*
-#Adding a container to the East US storage account
-resource "azurerm_storage_container" "eastus_container1" {
-    name                  = "eastuscontainer1"
-    storage_account_name  = azure_storage_account.east_storage_account.name
-    container_access_type = "private"
+/*resource "azurerm_data_protection_backup_instance_blob_storage" "east_backup_instance_blob" {
+  name              = "eastbackupinstanceblob"
+  vault_id          = azurerm_data_protection_backup_vault.east_blob_backup.id 
+  location          =  azurerm_resource_group.east_us_rg.location
+  backup_policy_id  = azurerm_data_protection_backup_policy_blob_storage.east_blob_storage_policy.id
+  storage_account_id = "/subscriptions/659c9195-eeff-450f-86f0-11ec1780f7bb/resourceGroups/east-us-rg/providers/Microsoft.Storage/storageAccounts/paoeaststorageaccount"
+
+   depends_on = [
+    azurerm_data_protection_backup_policy_blob_storage.east_blob_storage_policy
+  ]
 }*/
 
-# Azure recovery service vault east
-resource "azurerm_recovery_services_vault" "east_vault" {
-  name                = "east-recovery-vault"
-  location            = azurerm_resource_group.east_us_rg.location
-  resource_group_name = azurerm_resource_group.east_us_rg.name
-  sku                 = "Standard"
-}
-# Azure RSV WEST
-resource "azurerm_recovery_services_vault" "west_vault" {
-  name                = "west-recovery-vault"
-  location            = azurerm_resource_group.west_us_rg.location
-  resource_group_name = azurerm_resource_group.west_us_rg.name
-  sku                 = "Standard"
-}
 
+#WEST
 # Create Storage Account in West Region
 resource "azurerm_storage_account" "west_storage_account" {
-  name                     = "westappdata"          # Storage account must be globally unique
+  name                     = "paoweststorageaccount"          # Storage account must be globally unique
   resource_group_name      = azurerm_resource_group.west_us_rg.name
   location                 = azurerm_resource_group.west_us_rg.location
   account_tier              = "Standard"
   account_replication_type = "GRS"  # Geo-redundant storage for high availability
   account_kind             = "StorageV2"
-  blob_properties {
-    # Enable Blob Storage features (e.g., versioning, soft delete)
-    versioning_enabled = true
-    delete_retention_policy {
-    days = 7 # Retain deleted blobs for 7 days
-  }
- }
 }
 
-/*
-#Adding a container to the West US storage account
-resource "azurerm_storage_container" "westus_container1" {
-    name                  = "westuscontainer1"
-    storage_account_name  = azure_storage_account.west_storage_account.name
-    container_access_type = "private"
-}*/
-
-# Containers 
-resource "azurerm_backup_container_storage_account" "east_container" {
-  resource_group_name = azurerm_resource_group.east_us_rg.name
-  recovery_vault_name = azurerm_recovery_services_vault.east_vault.name
-  storage_account_id  = azurerm_storage_account.east_storage_account.id
+# Create a Recovery Services Vault
+resource "azurerm_recovery_services_vault" "west_recovery_vault" {
+  name                = "west-recovery-vault"
+  location             = azurerm_resource_group.west_us_rg.location
+  resource_group_name  = azurerm_resource_group.west_us_rg.name
+  sku                  = "Standard"
+  
 }
 
-resource "azurerm_backup_container_storage_account" "west_container" {
-  resource_group_name = azurerm_resource_group.west_us_rg.name
-  recovery_vault_name = azurerm_recovery_services_vault.west_vault.name
-  storage_account_id  = azurerm_storage_account.west_storage_account.id
-}
-/*# Backup Vault for east VM Backups
-resource "azurerm_backup_vault" "vm_east_backup_vault" {
-  name                = "vm-east-backup-vault"
-  resource_group_name = azurerm_resource_group.east_us_rg.name
-  location            = azurerm_resource_group.east_us_rg.location
-  sku                 = "Standard"
-}
 
-# Azure Recovery Services Vault East
-resource "azurerm_recovery_services_vault" "blob_east_backup_vault" {
-  name                = "blob-east-backup-vault"
-  resource_group_name = azurerm_resource_group.east_us_rg.name
-  location            = azurerm_resource_group.east_us_rg.location
-  sku                 = "Standard"
-}
+# Create a Backup Policy for VMs
+resource "azurerm_backup_policy_vm" "west_vm_policy" {
+  name                = "west-vm-backup-policy"
+  resource_group_name  = azurerm_resource_group.west_us_rg.name
+  recovery_vault_name = azurerm_recovery_services_vault.west_recovery_vault.name
 
-# Backup Policy for east VMs
-# Backup Policy for Virtual Machines
-resource "azurerm_backup_policy_vm" "vm_east_backup_policy" {
-  name                = "vm-east-backup-policy"
-  resource_group_name = azurerm_resource_group.east_us_rg.name
-  recovery_vault_name = azurerm_recovery_services_vault.vm_east_backup_vault.name
+  timezone = "UTC"
 
   backup {
     frequency = "Daily"
@@ -106,127 +145,156 @@ resource "azurerm_backup_policy_vm" "vm_east_backup_policy" {
   }
 
   retention_daily {
-    count = 7
+    count = 10
+  }
+
+  retention_weekly {
+    count    = 42
+    weekdays = ["Sunday", "Wednesday", "Friday", "Saturday"]
   }
 
   retention_monthly {
-    count    = 12
-    weekdays = ["Sunday"]
-    weeks     = "Last"
+    count    = 7
+    weekdays = ["Sunday", "Wednesday"]
+    weeks    = ["First", "Last"]
   }
 
   retention_yearly {
-    count = 5
-    months = "January"
-    weeks  = "First"
+    count    = 77
     weekdays = ["Sunday"]
+    weeks    = ["Last"]
+    months   = ["January"]
   }
 }
 
-# Backup Policy for east Blob Storage
-resource "azurerm_backup_policy_blob_storage" "blob_east_backup_policy" {
-  name                = "blob-east-backup-policy"
-  resource_group_name = azurerm_resource_group.east_us_rg.name
-  recovery_vault_name = azurerm_recovery_services_vault.vm_east_backup_vault.name
 
-  schedule {
-    frequency = "Daily"
-    time      = "23:30"
-  }
 
-  retention {
-    daily   = 7
-    weekly  = 4
-    monthly = 12
-    yearly  = 5
-  }
-}
-
-# Backup Vault for west VM Backups
-resource "azurerm_backup_vault" "vm_west_backup_vault" {
-  name                = "vm-west-backup-vault"
+# Create a Backup Vault
+resource "azurerm_data_protection_backup_vault" "west_blob_backup" {
+  name                = "westbackupvault"
   resource_group_name = azurerm_resource_group.west_us_rg.name
   location            = azurerm_resource_group.west_us_rg.location
-  sku                 = "Standard"
-}
+  datastore_type     = "VaultStore" 
+ redundancy          = "GeoRedundant"
 
-# Azure Recovery Services Vault West
-resource "azurerm_recovery_services_vault" "blob_west_backup_vault" {
-  name                = "blob-west-backup-vault"
-  resource_group_name = azurerm_resource_group.west_us_rg.name
-  location            = azurerm_resource_group.west_us_rg.location
-  sku                 = "Standard"
-}
 
-# Backup Policy for west VMs
-# Backup Policy for Virtual Machines
-resource "azurerm_backup_policy_vm" "vm_west_backup_policy" {
-  name                = "vm-east-backup-policy"
-  resource_group_name = azurerm_resource_group.west_us_rg.name
-  recovery_vault_name = azurerm_recovery_services_vault.vm_west_backup_vault.name
-
-  backup {
-    frequency = "Daily"
-    time      = "23:00"
+  lifecycle {
+    prevent_destroy = false
   }
 
-  retention_daily {
-    count = 7
+
   }
 
-  retention_monthly {
-    count    = 12
-    weekdays = ["Sunday"]
-    weeks     = "Last"
+
+
+# Create a Backup Policy for Blob Storage
+resource "azurerm_data_protection_backup_policy_blob_storage" "west_blob_storage_policy" {
+  name                = "westblobbackuppolicy"
+  vault_id           = azurerm_data_protection_backup_vault.west_blob_backup.id 
+  operational_default_retention_duration = "P7D"
+  time_zone          = "UTC"
+
+  depends_on = [
+        azurerm_data_protection_backup_vault.west_blob_backup
+  ]
+
+
+  lifecycle {
+    prevent_destroy = false
   }
 
-  retention_yearly {
-    count = 5
-    months = "January"
-    weeks  = "First"
-    weekdays = ["Sunday"]
-  }
 }
 
-# Backup Policy for west Blob Storage
-resource "azurerm_backup_policy_blob_storage" "blob_west_backup_policy" {
-  name                = "blob-west-backup-policy"
-  resource_group_name = azurerm_resource_group.west_us_rg.name
-  recovery_vault_name = azurerm_recovery_services_vault.vm_west_backup_vault.name
+/*# Configure Backup for the Storage Account
 
-  schedule {
-    frequency = "Daily"
-    time      = "23:30"
-  }
+resource "azurerm_data_protection_backup_instance_blob_storage" "west_backup_instance_blob" {
+  name              = "westbackupinstanceblob"
+  vault_id          = azurerm_data_protection_backup_vault.west_blob_backup.id 
+  location          =  azurerm_resource_group.west_us_rg.location
+  backup_policy_id  = azurerm_data_protection_backup_policy_blob_storage.west_blob_storage_policy.id
+  storage_account_id = "/subscriptions/659c9195-eeff-450f-86f0-11ec1780f7bb/resourceGroups/west-us-rg/providers/Microsoft.Storage/storageAccounts/paoweststorageaccount"
 
-  retention {
-    daily   = 7
-    weekly  = 4
-    monthly = 12
-    yearly  = 5
-  }
-}
-
-# VM Backup Association - East VM
-resource "azurerm_backup_protected_vm" "east_vm_backup" {
-  resource_group_name = azurerm_resource_group.east_us_rg.name
-  recovery_vault_name = azurerm_recovery_services_vault.vm_east_backup_vault.name
-  source_vm_id        = azurerm_windows_virtual_machine_scale_set.east_vmss.id
-  backup_policy_id    = azurerm_backup_policy_vm.vm_east_backup_policy.id
-}
-
-# VM Backup Association - West VM
-resource "azurerm_backup_protected_vm" "west_vm_backup" {
-  resource_group_name = azurerm_resource_group.west_us_rg.name
-  recovery_vault_name = azurerm_recovery_services_vault.vm_west_backup_vault.name
-  source_vm_id        = azurerm_windows_virtual_machine_scale_set.west_vmss.id
-  backup_policy_id    = azurerm_backup_policy_vm.vm_west_backup_policy.id
-}
-
-# Blob Storage Backup Association
-resource "azurerm_backup_protected_blob_storage" "blob_backup" {
-  resource_group_name      = azurerm_resource_group.east_us_rg.name
-  recovery_vault_name = azurerm_recovery_services_vault.vm_eastbackup_vault.name
-  storage_account_id       = azurerm_storage_account.east_storage_account.id
-  backup_policy_blob_id    = azurerm_backup_policy_blob_storage.blob_east_backup_policy.id
+   depends_on = [
+    azurerm_data_protection_backup_policy_blob_storage.west_blob_storage_policy
+  ]
 }*/
+
+/*# SITE RECOVERY FOR FAILOVER
+resource "azurerm_site_recovery_fabric" "primary_fabric" {
+  name                = "primary-fabric"
+  resource_group_name = azurerm_resource_group.east_us_rg.name
+  recovery_vault_name = azurerm_recovery_services_vault.east_recovery_vault.name
+  location            = azurerm_resource_group.east_us_rg.location
+}
+
+resource "azurerm_site_recovery_fabric" "secondary_fabric" {
+  name                = "secondary-fabric"
+  resource_group_name = azurerm_resource_group.west_us_rg.name
+  recovery_vault_name = azurerm_recovery_services_vault.west_recovery_vault.name
+  location            = azurerm_resource_group.west_us_rg.location
+}
+
+resource "azurerm_site_recovery_protection_container" "primary_protection_container" {
+  name                 = "primary-protection-container"
+  resource_group_name  = azurerm_resource_group.east_us_rg.name
+  recovery_vault_name  = azurerm_recovery_services_vault.east_recovery_vault.name
+  recovery_fabric_name = azurerm_site_recovery_fabric.primary_fabric.name
+}
+
+resource "azurerm_site_recovery_protection_container" "secondary_protection_container" {
+  name                 = "secondary-protection-container"
+  resource_group_name  = azurerm_resource_group.west_us_rg.name
+  recovery_vault_name  = azurerm_recovery_services_vault.west_recovery_vault.name
+  recovery_fabric_name = azurerm_site_recovery_fabric.secondary_fabric.name
+}
+
+resource "azurerm_site_recovery_replication_policy" "replication_policy" {
+  name                                                 = "replication-policy"
+  resource_group_name                                  = azurerm_resource_group.west_us_rg.name
+  recovery_vault_name                                  = azurerm_recovery_services_vault.west_recovery_vault.name
+  recovery_point_retention_in_minutes                  = 24 * 60
+  application_consistent_snapshot_frequency_in_minutes = 4 * 60
+
+}
+
+resource "azurerm_site_recovery_protection_container_mapping" "container-mapping" {
+  name                                      = "container-mapping"
+  resource_group_name                       = azurerm_resource_group.west_us_rg.name
+  recovery_vault_name                       = azurerm_recovery_services_vault.west_recovery_vault.name
+  recovery_fabric_name                      = azurerm_site_recovery_fabric.primary_fabric.name
+  recovery_source_protection_container_name = azurerm_site_recovery_protection_container.primary_protection_container.name
+  recovery_target_protection_container_id   = azurerm_site_recovery_protection_container.secondary_protection_container.id
+  recovery_replication_policy_id            = azurerm_site_recovery_replication_policy.replication_policy.id
+}
+
+resource "azurerm_site_recovery_network_mapping" "network-mapping" {
+  name                        = "network-mapping"
+  resource_group_name         = azurerm_resource_group.west_us_rg.name
+  recovery_vault_name         = azurerm_recovery_services_vault.west_recovery_vault.name
+  source_recovery_fabric_name = azurerm_site_recovery_fabric.primary_fabric.name
+  target_recovery_fabric_name = azurerm_site_recovery_fabric.secondary_fabric.name
+  source_network_id           = azurerm_virtual_network.east_us_vnet.id
+  target_network_id           = azurerm_virtual_network.west_us_vnet.id
+}
+
+
+resource "azurerm_site_recovery_replicated_vm" "vm-replication" {
+  name                                      = "vm-replication"
+  resource_group_name                       = azurerm_resource_group.east_us_rg.name
+  recovery_vault_name                       = azurerm_recovery_services_vault.east_recovery_vault.name
+  source_recovery_fabric_name               = azurerm_site_recovery_fabric.primary_fabric.name
+  source_vm_id                              = azurerm_windows_virtual_machine.east_vm.id
+  recovery_replication_policy_id            = azurerm_site_recovery_replication_policy.replication_policy.id
+  source_recovery_protection_container_name = azurerm_site_recovery_protection_container.primary_protection_container.name
+
+  target_resource_group_id                = azurerm_resource_group.west_us_rg.id
+  target_recovery_fabric_id               = azurerm_site_recovery_fabric.secondary_fabric.id
+  target_recovery_protection_container_id = azurerm_site_recovery_protection_container.secondary_protection_container.id
+  depends_on = [
+    azurerm_site_recovery_fabric.primary_fabric,
+    azurerm_site_recovery_fabric.secondary_fabric,
+    azurerm_site_recovery_protection_container.primary_protection_container,
+    azurerm_site_recovery_protection_container.secondary_protection_container
+  ]
+}*/
+
