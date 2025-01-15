@@ -564,7 +564,7 @@ resource "azurerm_automation_runbook" "east_vm_start_stop" {
   log_progress            = "true"
   description             = "Runbook to start/stop VMs for cost savings."
   publish_content_link {
-    uri = "https://github.com/Paoladjobissie/FinTechEdge-Terraform-VMSS-Traffic-Manager-AzureFirewall/blob/main/terraform/health_check.ps1"
+    uri = "https://raw.githubusercontent.com/Paoladjobissie/FinTechEdge-Terraform-VMSS-Traffic-Manager-AzureFirewall/main/terraform/health_check.ps1"
   }
   runbook_type            = "PowerShellWorkflow"
 }
