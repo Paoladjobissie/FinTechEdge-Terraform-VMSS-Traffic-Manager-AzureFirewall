@@ -102,7 +102,7 @@ resource "azurerm_data_protection_backup_policy_blob_storage" "east_blob_storage
   vault_id          = azurerm_data_protection_backup_vault.east_blob_backup.id 
   location          =  azurerm_resource_group.east_us_rg.location
   backup_policy_id  = azurerm_data_protection_backup_policy_blob_storage.east_blob_storage_policy.id
-  storage_account_id = "/subscriptions/659c9195-eeff-450f-86f0-11ec1780f7bb/resourceGroups/east-us-rg/providers/Microsoft.Storage/storageAccounts/paoeaststorageaccount"
+  storage_account_id = "/subscriptions/Your Azure Subscription/resourceGroups/east-us-rg/providers/Microsoft.Storage/storageAccounts/paoeaststorageaccount"
 
    depends_on = [
     azurerm_data_protection_backup_policy_blob_storage.east_blob_storage_policy
@@ -212,7 +212,7 @@ resource "azurerm_data_protection_backup_instance_blob_storage" "west_backup_ins
   vault_id          = azurerm_data_protection_backup_vault.west_blob_backup.id 
   location          =  azurerm_resource_group.west_us_rg.location
   backup_policy_id  = azurerm_data_protection_backup_policy_blob_storage.west_blob_storage_policy.id
-  storage_account_id = "/subscriptions/659c9195-eeff-450f-86f0-11ec1780f7bb/resourceGroups/west-us-rg/providers/Microsoft.Storage/storageAccounts/paoweststorageaccount"
+  storage_account_id = "/subscriptions/Your Azure Subscription/resourceGroups/west-us-rg/providers/Microsoft.Storage/storageAccounts/paoweststorageaccount"
 
    depends_on = [
     azurerm_data_protection_backup_policy_blob_storage.west_blob_storage_policy
