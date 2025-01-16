@@ -15,6 +15,7 @@ output "west_traffic_manager_fqdn" {
 /*output "subscription_id" {
   value = data.azurerm_subscription.current.id
 }*/
+
 output "instrumentation_key" {
   value = azurerm_application_insights.east_test_appinsights.instrumentation_key
      sensitive = true

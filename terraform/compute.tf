@@ -375,6 +375,43 @@ resource "azurerm_monitor_action_group" "east_main" {
   }
 }
 
+resource "azurerm_consumption_budget_resource_group" "east_budget" {
+  name              = "east-budget"
+  resource_group_id = azurerm_resource_group.east_us_rg.id
+
+  amount     = 1000
+  time_grain = "Monthly"
+
+  time_period {
+    start_date = "2025-02-01T00:00:00Z"
+    end_date   = "2025-07-01T00:00:00Z"
+  }
+  notification {
+    enabled        = true
+    threshold      = 70.0
+    operator       = "EqualTo"
+    threshold_type = "Forecasted"
+    contact_groups = [
+      azurerm_monitor_action_group.east_main.id,
+    ]
+  }
+}
+
+resource "azurerm_monitor_metric_alert" "east_cpu_alert" {
+  name                = "EastCPUAlert"
+  resource_group_name = azurerm_resource_group.east_us_rg.name
+  scopes              = [azurerm_windows_virtual_machine.east_vm.id]
+  severity            = 3
+  frequency           = "PT1M"
+  window_size         = "PT5M"
+  criteria {
+    metric_namespace = "Microsoft.Compute/virtualMachines"
+    metric_name      = "Percentage CPU"
+    aggregation      = "Average"
+    operator         = "GreaterThan"
+    threshold        = 80
+  }
+}
 
 resource "azurerm_monitor_metric_alert" "diskspaceAlert" {
   name                = "diskspaceAlert"
@@ -462,6 +499,28 @@ resource "azurerm_monitor_action_group" "west_main" {
     name          = "admin-email"
     email_address = "djobissiepaola@gmail.com"
      use_common_alert_schema = true
+  }
+}
+
+resource "azurerm_consumption_budget_resource_group" "west_budget" {
+  name              = "west-budget"
+  resource_group_id = azurerm_resource_group.west_us_rg.id
+
+  amount     = 1000
+  time_grain = "Monthly"
+
+  time_period {
+    start_date = "2025-02-01T00:00:00Z"
+    end_date   = "2025-07-01T00:00:00Z"
+  }
+  notification {
+    enabled        = true
+    threshold      = 70.0
+    operator       = "EqualTo"
+    threshold_type = "Forecasted"
+    contact_groups = [
+      azurerm_monitor_action_group.west_main.id,
+    ]
   }
 }
 

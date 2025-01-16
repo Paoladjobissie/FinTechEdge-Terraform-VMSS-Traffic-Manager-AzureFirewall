@@ -33,3 +33,13 @@ variable "nsg_rules" {
   }]
   description = "NSG Rules"
 }
+
+/*variable "tags" {
+  description = "Common tags for all resources"
+  type = map(string)
+  default = {
+    Environment  = "Production"
+    Department   = "IT"
+    CostCenter   = "12345"
+  }
+}*/
