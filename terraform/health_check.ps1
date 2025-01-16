@@ -3,7 +3,7 @@
 Connect-AzAccount -Identity
 
 # Parameters
-$subscriptionId = "659c9195-eeff-450f-86f0-11ec1780f7bb"
+$subscriptionId = "Your Azure Subscription"
 $resourceGroupName = "east-us-rg"
 $vmName = "east-vm"
 
@@ -35,7 +35,7 @@ Write-Output "Health check completed for VM $vmName."
 Connect-AzAccount -Identity
 
 # Parameters
-$subscriptionId = "659c9195-eeff-450f-86f0-11ec1780f7bb"
+$subscriptionId = "Your Azure Subscription"
 $resourceGroupName = "west-us-rg"
 $vmName = "west-vm"
 
